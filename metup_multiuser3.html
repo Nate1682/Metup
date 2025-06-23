@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rendez-vous</title>
+  <!-- Ajout du SDK Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <!-- Ajout de Tailwind CSS pour un design moderne et réactif -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Ajout de la police Inter, qui est plus moderne -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background-color: #f8fafc; padding-bottom: 80px; }
+    .range-slider {
+        --value: 0; --max: 90;
+        /* Correction: Utilise la variable de thème */
+        background: linear-gradient(to right, var(--theme-600, #8b5cf6), var(--theme-600, #8b5cf6) calc( (var(--value) / var(--max)) * 100% ), #e5e7eb calc( (var(--value) / var(--max)) * 100% ), #e5e7eb 100%);
+    }
+    input[type="range"].range-slider { height: 0.75rem; -webkit-appearance: none; appearance: none; cursor: pointer; border-radius: 9999px; }
+    input[type="range"].range-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 1.5rem; height: 1.5rem; background-color: white; border: 3px solid var(--theme-600, #8b5cf6); border-radius: 50%; margin-top: -6px; }
+    input[type="range"].range-slider::-moz-range-thumb { width: 1.5rem; height: 1.5rem; background-color: white; border: 3px solid var(--theme-600, #8b5cf6); border-radius: 50%; }
+    @keyframes walk { 0% { transform: translateX(-2px); } 50% { transform: translateX(2px); } 100% { transform: translateX(-2px); } }
+    .walking-icon { animation: walk 1.2s ease-in-out infinite; }
+    /* Correction: Utilise la variable de thème */
+    .avatar-choice.selected { outline: 4px solid var(--theme-600, #8b5cf6); outline-offset: 2px; }
+    
+
+  </style>
+</head>
+<body class="text-gray-800">
+
+  <!-- =============================== -->
+  <!-- Header (En-tête)                -->
+  <!-- =============================== -->
+  <header class="bg-white sticky top-0 z-10 shadow-sm">
+    <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+      <div id="user-info" class="flex items-center gap-2" style="display: none;">
+        <img id="user-avatar" class="w-8 h-8 rounded-full object-cover" src="" alt="avatar">
+        <span id="user-pseudo" class="font-bold text-gray-700"></span>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- =============================== -->
+  <!-- Contenu Principal (Géré par JS) -->
+  <!-- =============================== -->
+  <main class="container mx-auto px-4 py-6">
+    <!-- Le contenu de cette balise sera généré par le script JavaScript -->
+  </main>
+  
+  <!-- =============================== -->
+  <!-- Footer (Menu de navigation)     -->
+  <!-- =============================== -->
+  <footer id="footer-nav" class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-10" style="display: none;">
+    <nav class="container mx-auto px-4 flex justify-around">
+      <!-- Correction: Utilise les variables de thème -->
+      <a href="#" id="nav-accueil" class="flex-1 flex flex-col items-center justify-center py-3 text-[var(--theme-600)]">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        <span class="text-xs font-bold">Accueil</span>
+      </a>
+      <a href="#" id="nav-creer" class="flex-1 flex flex-col items-center justify-center py-3 text-gray-500 hover:text-[var(--theme-600)] transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+        <span class="text-xs font-medium">Créer</span>
+      </a>
+    </nav>
+  </footer>
+
+  <!-- =============================== -->
+  <!-- Logique JavaScript avec Supabase -->
+  <!-- =============================== -->
+  <script>
+    // ===================================
+    // INITIALISATION DE SUPABASE
+    // ===================================
+    const SUPABASE_URL = 'https://agrczqgsvytaviylmuyp.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFncmN6cWdzdnl0YXZpeWxtdXlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTAwMDY3NzcsImV4cCI6MjA2NTU4Mjc3N30.pEI1vubOLycVzBiNPnlTegTern25OjlGhvKznRL0oOg';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+
+    document.addEventListener("DOMContentLoaded", () => {
+      demarrerApplication();
+    });
+
+    /**
+     * Applique un thème de couleur à l'application en définissant des variables CSS sur l'élément racine.
+     * @param {string} colorName - Le nom de la couleur du thème à appliquer (ex: 'violet', 'orange').
+     */
+    function applyThemeColor(colorName) {
+        const root = document.documentElement.style;
+        const themes = {
+            violet: { '100': '#ede9fe', '200': '#ddd6fe', '600': '#7c3aed', '700': '#6d28d9' },
+            orange: { '100': '#ffedd5', '200': '#fed7aa', '600': '#f97316', '700': '#ea580c' },
+            blue:   { '100': '#dbeafe', '200': '#bfdbfe', '600': '#2563eb', '700': '#1d4ed8' },
+            rose:   { '100': '#fce7f3', '200': '#fbcfe8', '600': '#db2777', '700': '#be185d' }
+        };
+        const theme = themes[colorName] || themes.violet;
+        root.setProperty('--theme-100', theme['100']);
+        root.setProperty('--theme-200', theme['200']);
+        root.setProperty('--theme-600', theme['600']);
+        root.setProperty('--theme-700', theme['700']);
+    }
+
+    async function demarrerApplication() {
+      const user = JSON.parse(localStorage.getItem("user"));
+      if (user && user.pseudo) {
+        applyThemeColor(user.color); // Appliquer le thème sauvegardé
+        chargerInfosUtilisateurHeader();
+        await afficherRendezVous();
+        initialiserListenersFooter();
+        document.getElementById('footer-nav').style.display = 'block';
+      } else {
+        applyThemeColor('violet'); // Appliquer un thème par défaut pour la page de login
+        afficherPageLogin();
+      }
+    }
+
+    function chargerInfosUtilisateurHeader() {
+        const user = JSON.parse(localStorage.getItem("user"));
+        const userInfoDiv = document.getElementById('user-info');
+        if (user && user.pseudo) {
+            document.getElementById('user-pseudo').textContent = user.pseudo;
+            document.getElementById('user-avatar').src = user.avatar;
+            userInfoDiv.style.display = 'flex';
+        } else {
+            userInfoDiv.style.display = 'none';
+        }
+    }
+
+    function afficherPageLogin() {
+        const container = document.querySelector("main.container");
+        document.getElementById('footer-nav').style.display = 'none';
+        
+        const avatars = [ 
+            {url : 'https://agrczqgsvytaviylmuyp.supabase.co/storage/v1/object/public/avatars//rose_avatar.png', color : 'rose'},
+            {url : 'https://agrczqgsvytaviylmuyp.supabase.co/storage/v1/object/public/avatars//violet_avatar.png',color:'violet'},
+            {url:'https://agrczqgsvytaviylmuyp.supabase.co/storage/v1/object/public/avatars//blue_avatar.png',color:'blue'},
+            {url :'https://agrczqgsvytaviylmuyp.supabase.co/storage/v1/object/public/avatars//orange_avatar.png',color:'orange'}
+        ];
+        
+        container.innerHTML = `
+            <div class="text-center"> <h1 class="text-3xl font-bold text-[var(--theme-600)] mb-2">Bienvenue !</h1> <p class="text-gray-500 mb-8">Choisissez votre pseudo et votre avatar pour commencer.</p> </div>
+            <form id="form-login" class="space-y-6 bg-white p-8 rounded-2xl shadow-lg">
+                <div> <label for="pseudo" class="block text-sm font-medium text-gray-700 mb-1">Votre pseudo</label> <input type="text" name="pseudo" id="pseudo" required placeholder="SuperNat" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)] text-lg"> </div>
+                <div> <label class="block text-sm font-medium text-gray-700 mb-2">Choisissez un avatar</label> <div id="avatar-container" class="grid grid-cols-2 sm:grid-cols-4 gap-4"> ${avatars.map(avatar => `<img src="${avatar.url}" class="avatar-choice w-16 h-16 rounded-full cursor-pointer hover:opacity-80 transition-opacity" data-avatar="${avatar.url}" data-color="${avatar.color}">`).join('')} </div> </div>
+                <button type="submit" class="w-full bg-[var(--theme-600)] text-white font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-[var(--theme-700)]"> C'est parti ! </button>
+            </form>
+        `;
+        
+        let selectedAvatar = null;
+        let selectedColor = 'violet'; // Couleur par défaut
+        const avatarChoices = document.querySelectorAll('.avatar-choice');
+
+        avatarChoices.forEach(choice => {
+            choice.addEventListener('click', () => {
+                avatarChoices.forEach(el => el.classList.remove('selected'));
+                choice.classList.add('selected');
+
+                selectedAvatar = choice.dataset.avatar;
+                selectedColor = choice.dataset.color;
+                applyThemeColor(selectedColor); // Appliquer le thème en direct
+            });
+        });
+        
+        document.getElementById('form-login').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const pseudo = document.getElementById('pseudo').value;
+            if (!pseudo.trim() || !selectedAvatar) {
+                alert("Veuillez choisir un pseudo et un avatar !");
+                return;
+            }
+            // Correction: Sauvegarder la couleur choisie
+            const user = { pseudo: pseudo.trim(), avatar: selectedAvatar, color: selectedColor };
+            localStorage.setItem('user', JSON.stringify(user));
+            demarrerApplication();
+        });
+    }
+
+    function initialiserListenersPrincipaux() {
+      const createBtn = document.getElementById("btn-create-rdv");
+      if (createBtn) createBtn.addEventListener("click", (e) => { e.preventDefault(); afficherFormulaire(); });
+    }
+
+    function initialiserListenersFooter() {
+      const accueilBtn = document.getElementById("nav-accueil");
+      if (accueilBtn) accueilBtn.addEventListener("click", async (e) => { e.preventDefault(); await afficherRendezVous(); });
+      const creerBtn = document.getElementById("nav-creer");
+      if (creerBtn) creerBtn.addEventListener("click", (e) => { e.preventDefault(); afficherFormulaire(); });
+    }
+
+    function afficherFormulaire() {
+        const container = document.querySelector("main.container");
+        container.innerHTML = `
+            <h1 class="text-2xl font-bold text-[var(--theme-600)] mb-6">Créer un rendez-vous</h1>
+            <form id="form-rdv" class="space-y-5">
+                <div> <label for="nom" class="block text-sm font-medium text-gray-700 mb-1">Nom</label> <input type="text" name="nom" id="nom" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)]"> </div>
+                <div class="flex gap-4"> <div class="flex-1"> <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date</label> <input type="date" name="date" id="date" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)]"> </div> <div class="flex-1"> <label for="heure" class="block text-sm font-medium text-gray-700 mb-1">Heure (facultatif)</label> <input type="time" name="heure" id="heure" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)]"> </div> </div>
+                <div> <label for="adresse" class="block text-sm font-medium text-gray-700 mb-1">Adresse (facultatif)</label> <input type="text" name="adresse" id="adresse" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)]"> </div>
+                <div> <label for="description" class="block text-sm font-medium text-gray-700 mb-1">Description (facultatif)</label> <input type="text" name="description" id="description" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-[var(--theme-600)] focus:border-[var(--theme-600)]"> </div>
+                <div> <label for="progression" class="block text-sm font-medium text-gray-700 mb-1">Progression initiale : <span id="val-prog" class="font-bold text-[var(--theme-600)]">0 min</span></label> <input type="range" name="progression" min="0" max="90" value="0" class="w-full range-slider" oninput="document.getElementById('val-prog').textContent = this.value + ' min'"> </div>
+                <button type="submit" class="w-full bg-[var(--theme-600)] text-white font-bold py-3 px-4 rounded-xl shadow-sm hover:bg-[var(--theme-700)]">Valider</button>
+            </form>
+        `;
+
+        document.getElementById("form-rdv").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const user = JSON.parse(localStorage.getItem("user"));
+            const heureValue = formData.get("heure");
+            const rdv = {
+                nom: formData.get("nom"),
+                description: formData.get("description"),
+                date: formData.get("date"),
+                heure: heureValue ? heureValue : null,
+                adresse: formData.get("adresse"),
+                statut: "En chemin",
+                progression: parseInt(formData.get("progression"), 10),
+                participants: [user.pseudo] 
+            };
+            await sauvegarderRdv(rdv);
+            await afficherRendezVous();
+        });
+    }
+
+    async function sauvegarderRdv(rdv) {
+      const { error } = await supabaseClient.from('rdvs').insert([rdv]);
+      if (error) console.error('Erreur lors de la sauvegarde du RDV:', error);
+    }
+async function afficherRendezVous() {
+    const container = document.querySelector("main.container");
+    container.innerHTML = `<div id="loading" class="text-center p-10">Chargement des rendez-vous...</div>`;
+    
+    const user = JSON.parse(localStorage.getItem("user"));
+    
+    // Au cas où l'utilisateur n'existerait pas, pour éviter une erreur.
+    if (!user || !user.pseudo) {
+        console.error("Utilisateur non trouvé, redirection vers la page de connexion.");
+        afficherPageLogin();
+        return;
+    }
+    
+    const filterValue = JSON.stringify([user.pseudo]);
+
+    const { data: rdvs, error } = await supabaseClient
+        .from('rdvs')
+        .select('*')
+        // Note : .contains ne fonctionnera que si la colonne 'participants' est de type array (ex: text[]).
+        // Si c'est juste du texte, il faudra utiliser .like('%"'+user.pseudo+'"%')
+        .contains('participants', filterValue);
+
+    if (error) {
+        console.error("Erreur lors de la récupération des RDVs:", error);
+        container.innerHTML = `<div class="bg-red-100 text-red-700 p-4 rounded-lg">Erreur de chargement des données.</div>`;
+        return;
+    }
+    
+    container.innerHTML = `
+        <h1 class="text-3xl font-bold text-[var(--theme-600)] mb-2">Bienvenue, ${user.pseudo} !</h1>
+        <p class="text-gray-500 mb-8">Créez un rendez-vous ou consultez ceux auxquels vous participez.</p>
+        <div class="space-y-4">
+            <button id="btn-create-rdv" class="w-full flex items-center justify-center gap-3 bg-[var(--theme-100)] text-[var(--theme-700)] font-bold py-4 px-4 rounded-xl shadow-sm hover:bg-[var(--theme-200)] transition-colors"> <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14m-7-7h14"/></svg> Créer un rendez-vous </button>
+        </div>
+        <h2 class="text-xl font-bold mt-10 mb-4">Vos rendez-vous à venir</h2><div id="rdv-list"></div>
+        <h2 class="text-xl font-bold mt-10 mb-4">Vos rendez-vous passés</h2><div id="rdv-passe-list"></div>
+    `;
+
+    const rdvsAvenir = rdvs.filter(r => r.statut !== "Rendez-vous passé");
+    const rdvsPasses = rdvs.filter(r => r.statut === "Rendez-vous passé");
+    const rdvListContainer = document.getElementById('rdv-list');
+    const rdvPasseListContainer = document.getElementById('rdv-passe-list');
+
+    if (rdvsAvenir.length === 0) {
+        rdvListContainer.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm text-center text-gray-400">Aucun rendez-vous à venir</div>`;
+    } else {
+        rdvListContainer.innerHTML = '';
+        rdvsAvenir.forEach(rdv => {
+            const card = document.createElement("div");
+            card.className = "bg-white p-5 rounded-xl shadow-sm mb-4 cursor-pointer hover:shadow-md transition-shadow";
+            card.setAttribute("data-id", rdv.id);
+            
+            const statutColor = rdv.statut === "En chemin" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-700";
+            let statutHtml;
+            const gifUrl = "https://img1.picmix.com/output/stamp/normal/2/7/5/5/2205572_5d12c.gif"; // Votre URL de GIF
+            if (rdv.statut === "En chemin") {
+                statutHtml = `
+                    <div class="relative">
+                        <span class="text-xs font-medium px-2 py-1 rounded-full ${statutColor} inline-flex items-center gap-1.5">
+                            <span class="ml-5">${rdv.statut}</span> 
+                        </span>
+                        <img src="${gifUrl}" alt="en chemin" class="w-25 h-12 absolute -top-5 -left-20">
+                    </div>
+                    
+                `;
+            } else {
+                statutHtml = `<span class="text-xs font-medium px-2 py-1 rounded-full ${statutColor}">${rdv.statut}</span>`;
+            }
+
+            const heureHtml = rdv.heure ? ` à ${rdv.heure}` : '';
+            const descriptionHtml = rdv.description ? `<p class="text-sm text-gray-600 mt-1">${rdv.description}</p>` : '';
+            const progression = rdv.progression ? Math.max(0, Math.min(100, rdv.progression)) : 0;
+
+            // CORRECTION: statutHtml est maintenant utilisé ici, et les couleurs de progression sont dynamiques.
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <strong class="text-lg font-semibold text-gray-800">${rdv.nom}</strong>
+                        <p class="text-sm text-gray-500">${formaterDateFr(rdv.date)}${heureHtml}</p>
+                        ${descriptionHtml}
+                    </div>
+                    ${statutHtml}
+                </div>
+                <div class="mt-4">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-semibold text-[var(--theme-700)]">Progression</span>
+                        <span class="text-xs font-bold text-[var(--theme-700)]">${progression}%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-[var(--theme-600)] h-2.5 rounded-full progress-bar-inner" style="width: ${progression}%"></div>
+                    </div>
+                </div>
+            `;
+            card.addEventListener("click", (e) => { if (e.target.type !== "range") ouvrirDetailRdv(rdv.id); });
+            rdvListContainer.appendChild(card);
+        });
+    }
+
+    if (rdvsPasses.length === 0) {
+        rdvPasseListContainer.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm text-center text-gray-400">Aucun rendez-vous passé</div>`;
+    } else {
+        rdvPasseListContainer.innerHTML = '';
+        rdvsPasses.forEach(rdv => {
+            const card = document.createElement("div");
+            card.className = "bg-gray-100 p-5 rounded-xl mb-4 border opacity-70";
+            card.setAttribute("data-id", rdv.id);
+            const heureHtml = rdv.heure ? ` à ${rdv.heure}` : '';
+            card.innerHTML = `<div><strong class="text-lg font-semibold text-gray-500 line-through">${rdv.nom}</strong><p class="text-sm text-gray-400">${formaterDateFr(rdv.date)}${heureHtml}</p></div>`;
+            card.addEventListener('click', () => ouvrirDetailRdv(rdv.id));
+            rdvPasseListContainer.appendChild(card);
+        });
+    }
+    
+    initialiserListenersPrincipaux();
+}
+
+    
+
+    async function mettreAJourProgression(id, valeur) {
+      const { error } = await supabaseClient.from('rdvs').update({ progression: valeur }).eq('id', id);
+      if (error) console.error("Erreur lors de la mise à jour de la progression:", error);
+    }
+
+    function formaterDateFr(dateStr) {
+      if (!dateStr) return '';
+      const date = new Date(dateStr);
+      return date.toLocaleDateString("fr-FR", { timeZone: 'UTC', weekday: "long", day: "numeric", month: "long" });
+    }
+
+    function genererCodeRdv() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      let code = "";
+      for (let i = 0; i < 4; i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+      return code;
+    }
+
+async function ouvrirDetailRdv(id) {
+  const { data: rdv, error } = await supabaseClient.from('rdvs').select('*').eq('id', id).single();
+  if (error || !rdv) {
+    console.error("Erreur ou RDV non trouvé:", error);
+    return;
+  }
+
+  // On récupère l'utilisateur actuel et on vérifie s'il est le créateur
+  // La convention est que le créateur est le premier de la liste des participants
+  const user = JSON.parse(localStorage.getItem("user"));
+  const isCreator = user.pseudo === rdv.participants[0];
+
+  if (!rdv.code) {
+    rdv.code = genererCodeRdv();
+    const { error: updateError } = await supabaseClient.from('rdvs').update({ code: rdv.code }).eq('id', id);
+    if (updateError) console.error("Erreur lors de la sauvegarde du code:", updateError);
+  }
+
+  let modal = document.getElementById("modal-rdv-detail");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modal-rdv-detail";
+    document.body.appendChild(modal);
+  }
+
+  modal.className = "fixed inset-0 bg-black bg-opacity-50 z-20 flex items-center justify-center p-4";
+  const buttonText = rdv.statut === "En attente" ? "Reprendre (En chemin)" : "Mettre en attente";
+  const heureDetailHtml = rdv.heure ? ` à ${rdv.heure}` : '';
+  const descriptionDetailHtml = rdv.description ? `<p class="text-gray-600 mt-2">${rdv.description}</p>` : `<p class="text-gray-500 mt-2 italic">Aucune description.</p>`;
+  const adresseDetailHtml = rdv.adresse ? `<p><strong class="font-medium text-gray-500">Adresse :</strong> ${rdv.adresse}</p>` : '';
+  const progression = rdv.progression ? Math.max(0, Math.min(100, rdv.progression)) : 0;
+  
+  modal.innerHTML = `
+    <div class="bg-white w-full max-w-md p-6 rounded-2xl shadow-xl">
+      <h3 class="text-xl font-bold text-gray-800">${rdv.nom}</h3>
+      ${descriptionDetailHtml}
+      <div class="mt-4 p-3 bg-gray-50 rounded-lg space-y-2">
+          <p><strong class="font-medium text-gray-500">Date :</strong> ${formaterDateFr(rdv.date)}${heureDetailHtml}</p>
+          ${adresseDetailHtml}
+          <p><strong class="font-medium text-gray-500">Statut :</strong> <span class="font-semibold text-violet-600">${rdv.statut}</span></p>
+          <p><strong class="font-medium text-gray-500">Participants :</strong> ${rdv.participants.join(', ')}</p>
+      </div>
+
+      <div class="mt-6 border-t pt-4">
+        <label for="progression-slider" class="block font-semibold mb-2">Progression: <span id="progression-value">${progression}%</span></label>
+        ${isCreator ? `
+          <input type="range" id="progression-slider" min="0" max="100" value="${progression}" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+        ` : `
+          <div class="w-full bg-gray-200 rounded-full h-4">
+              <div class="bg-violet-600 h-4 rounded-full" style="width: ${progression}%"></div>
+          </div>
+          <p class="text-xs text-gray-500 mt-2">Seul le créateur (${rdv.participants[0]}) peut modifier la progression.</p>
+        `}
+      </div>
+
+      <div class="mt-6 border-t pt-4">
+          <h4 class="font-semibold mb-2">Partager ce rendez-vous</h4>
+          <div class="flex gap-2">
+              <input type="text" id="share-pseudo-input" placeholder="Pseudo de l'ami" class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-violet-500 focus:border-violet-500">
+              <button id="btn-share" class="bg-violet-600 text-white font-bold py-2 px-4 rounded-xl shadow-sm hover:bg-violet-700">Inviter</button>
+          </div>
+      </div>
+      
+      <div id="modal-buttons" class="mt-6 space-y-3"></div>
+    </div>
+  `;
+  
+  // LOGIQUE DE MISE À JOUR EN TEMPS RÉEL DE LA PROGRESSION
+  if (isCreator) {
+    const slider = document.getElementById('progression-slider');
+    const valueLabel = document.getElementById('progression-value');
+    
+    slider.addEventListener('input', () => {
+      const newValue = slider.value;
+      valueLabel.textContent = `${newValue}%`; // Met à jour le texte dans la modale
+      
+      // Met à jour la barre de progression sur la page principale en arrière-plan
+      const mainPageProgressBar = document.querySelector(`[data-id="${id}"] .progress-bar-inner`);
+      if (mainPageProgressBar) {
+        mainPageProgressBar.style.width = `${newValue}%`;
+        // Met aussi à jour le pourcentage sur la page principale
+        const mainPageProgressLabel = mainPageProgressBar.closest('.mt-4').querySelector('.font-bold');
+        if(mainPageProgressLabel) {
+            mainPageProgressLabel.textContent = `${newValue}%`;
+        }
+      }
+    });
+
+    // Sauvegarde en base de données quand on relâche le curseur
+    slider.addEventListener('change', () => {
+      mettreAJourProgression(id, parseInt(slider.value, 10));
+    });
+  }
+
+  // LOGIQUE DES BOUTONS DE LA MODALE
+  const buttonsContainer = modal.querySelector('#modal-buttons');
+  if (rdv.statut !== 'Rendez-vous passé') {
+    buttonsContainer.innerHTML = `
+        <button id="btn-attente" class="w-full text-center py-2 px-4 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-200 font-semibold transition-colors">${buttonText}</button>
+        <button id="btn-passee" class="w-full text-center py-2 px-4 rounded-lg bg-rose-100 text-rose-800 hover:bg-rose-200 font-semibold transition-colors">Marquer comme passé</button>
+    `;
+  } else {
+    buttonsContainer.innerHTML = `<p class="text-center text-gray-500 text-sm">Ce rendez-vous est terminé.</p>`
+  }
+  buttonsContainer.innerHTML += `<button id="btn-fermer" class="w-full text-center py-2 px-4 rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300 font-semibold transition-colors mt-4">Fermer</button>`;
+  
+  modal.addEventListener('click', (e) => { if(e.target.id === 'modal-rdv-detail') modal.remove(); });
+  document.getElementById("btn-fermer").onclick = () => modal.remove();
+  
+  if (rdv.statut !== 'Rendez-vous passé') {
+      document.getElementById("btn-passee").onclick = async () => {
+        await changerStatut(id, "Rendez-vous passé");
+        modal.remove();
+        await afficherRendezVous();
+      };
+      document.getElementById("btn-attente").onclick = async () => {
+        const nouveauStatut = rdv.statut === "En attente" ? "En chemin" : "En attente";
+        await changerStatut(id, nouveauStatut);
+        modal.remove();
+        await afficherRendezVous();
+      };
+  }
+  
+  // LOGIQUE DU BOUTON DE PARTAGE
+  document.getElementById("btn-share").addEventListener('click', async () => {
+    const pseudoToShare = document.getElementById('share-pseudo-input').value.trim();
+    if (!pseudoToShare) {
+      alert("Veuillez entrer un pseudo.");
+      return;
+    }
+
+    if (rdv.participants.includes(pseudoToShare)) {
+      alert(`${pseudoToShare} participe déjà à ce rendez-vous.`);
+      return;
+    }
+
+    const updatedParticipants = [...rdv.participants, pseudoToShare];
+
+    const { error: updateError } = await supabaseClient
+      .from('rdvs')
+      .update({ participants: updatedParticipants })
+      .eq('id', rdv.id);
+
+    if (updateError) {
+      alert("Erreur lors du partage.");
+      console.error("Erreur de partage:", updateError);
+    } else {
+      alert(`Rendez-vous partagé avec ${pseudoToShare} !`);
+      // Met à jour la liste des participants dans la modale sans la fermer
+      const participantsElement = modal.querySelector('p:last-of-type');
+      if (participantsElement) {
+        participantsElement.innerHTML = `<strong class="font-medium text-gray-500">Participants :</strong> ${updatedParticipants.join(', ')}`;
+      }
+      document.getElementById('share-pseudo-input').value = ''; // Vide le champ
+    }
+  });
+}
+
+    async function changerStatut(id, nouveauStatut) {
+      let updateData = { statut: nouveauStatut };
+      if (nouveauStatut !== "En chemin") {
+        updateData.progression = null;
+      } else {
+        if (updateData.progression === undefined) {
+          updateData.progression = 0;
+        }
+      }
+      const { error } = await supabaseClient.from('rdvs').update(updateData).eq('id', id);
+      if (error) console.error("Erreur lors du changement de statut:", error);
+    }
+    async function mettreAJourProgression(id, valeur) {
+        const { error } = await supabaseClient
+            .from('rdvs')
+            .update({ progression: valeur })
+            .eq('id', id);
+            
+        if (error) {
+            console.error("Erreur lors de la mise à jour de la progression:", error);
+            alert("La progression n'a pas pu être sauvegardée.");
+        }
+    }
+
+
+
+    
+  </script>
+</body>
+</html>
